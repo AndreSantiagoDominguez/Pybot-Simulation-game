@@ -6,8 +6,9 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"pybot-simulator/api/sensors"
 	"time"
-	
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"pybot-simulator/config"
@@ -17,17 +18,19 @@ import (
 type Game struct {
 	width  int
 	height int
-	
+
 	robot *entities.Robot
 	cans  []*entities.Can
-	
+
 	spawnButton    Button
 	rechargeButton Button
-	
+
 	canSprite *ebiten.Image
-	
+
 	rng              *rand.Rand
 	animationCounter int
+	realTimeCamera   *sensors.RealTimeCamera
+	cameraTicks      int
 }
 
 type Button struct {
@@ -43,7 +46,14 @@ func NewGame(width, height int) *Game {
 		rng:              rand.New(rand.NewSource(time.Now().UnixNano())),
 		animationCounter: 0,
 	}
-	
+
+	// Initialize the real-time camera sensor
+	var err error
+	g.realTimeCamera, err = sensors.NewRealTimeCamera()
+	if err != nil {
+		log.Printf("Warning: Failed to initialize real-time camera: %v", err)
+	}
+
 	// Crear robot en el centro (sin sprite todavía)
 	g.robot = entities.NewRobot(
 		float64(width)/2,
@@ -95,9 +105,9 @@ func (g *Game) LoadAssets() {
 	
 	// Cargar sprite de la lata
 	var err error
-	g.canSprite, _, err = ebitenutil.NewImageFromFile("assets/can.png")
+	g.canSprite, _, err = ebitenutil.NewImageFromFile("assets/trash-sprites/trash_types.png")
 	if err != nil {
-		log.Printf("No se pudo cargar can.png: %v", err)
+		log.Printf("No se pudo cargar trash_types.png: %v", err)
 		// Sprite temporal para la lata
 		g.canSprite = ebiten.NewImage(config.CanSize, config.CanSize)
 		g.canSprite.Fill(color.RGBA{255, 200, 50, 255})
@@ -214,7 +224,7 @@ func (g *Game) GetActiveCansCount() int {
 func (g *Game) Update() error {
 	g.animationCounter++
 	g.HandleInput()
-	
+
 	// Si el robot no tiene objetivo y tiene batería, buscar la lata más cercana
 	if g.robot.Target == nil && g.robot.Battery > 0 {
 		nearest := g.FindNearestCan()
@@ -222,7 +232,17 @@ func (g *Game) Update() error {
 			g.robot.SetTarget(nearest.Position)
 		}
 	}
-	
+
+	// Handle real-time camera publishing
+	if g.robot.Battery > 0 {
+		g.cameraTicks++
+		// Publish an image every 180 ticks (e.g., every 3 seconds at 60 TPS)
+		if g.cameraTicks >= 15 {
+			g.cameraTicks = 0
+			go g.realTimeCamera.PublishRandomImage()
+		}
+	}
+
 	g.robot.Update()
 	g.CheckCollisions()
 	return nil

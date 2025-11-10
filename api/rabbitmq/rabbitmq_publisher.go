@@ -41,10 +41,10 @@ func init() {
 
 	// CAMBIO: Leemos la variable RABBITMQ_URL
 	// El valor por defecto es la URL estándar de RabbitMQ
-	rabbitmqURL = getEnv("RABBITMQ_URL", "")
+	rabbitmqURL = getEnv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
 
 	// Mantenemos la carga de la routing key
-	defaultRoutingKey = getEnv("MQTT_TOPIC", "sensores/datos")
+	//defaultRoutingKey = getEnv("MQTT_TOPIC", "sensores/datos")
 }
 
 // RabbitMQPublisher es el struct, equivalente a tu 'class'
@@ -58,8 +58,9 @@ func NewRabbitMQPublisher() (*RabbitMQPublisher, error) {
 	// Conectamos (pika.BlockingConnection)
 	conn, err := amqp.Dial(rabbitmqURL)
 	if err != nil {
-		log.Printf("[RabbitMQ] Error al conectar: %v", err)
-		return nil, fmt.Errorf("error al conectar: %w", err)
+		log.Printf("[RabbitMQ] Advertencia: No se pudo conectar a RabbitMQ. La publicación de mensajes estará deshabilitada. Error: %v", err)
+		// Devuelve una instancia "dummy" para que el resto del programa no falle.
+		return &RabbitMQPublisher{connection: nil, channel: nil}, nil
 	}
 
 	// Creamos el canal (self.connection.channel())
@@ -96,11 +97,12 @@ func NewRabbitMQPublisher() (*RabbitMQPublisher, error) {
 
 // Send es el método para publicar, equivalente a tu 'send'
 // 'payload' es 'interface{}' para aceptar cualquier struct o map (como un dict)
-func (r *RabbitMQPublisher) Send(payload interface{}, routingKey string) error {
+// Devuelve (true, nil) si se envió, (false, nil) si se omitió, (false, error) si falló.
+func (r *RabbitMQPublisher) Send(payload interface{}, routingKey string) (bool, error) {
 	// if not self.connection or self.connection.is_closed:
-	if r.connection == nil || r.connection.IsClosed() {
-		log.Println("[RabbitMQ] Conexión no disponible")
-		return fmt.Errorf("conexión no disponible")
+	if r.connection == nil || r.connection.IsClosed() || r.channel == nil {
+		// Silenciosamente no hacer nada si no hay conexión. El error ya se reportó al inicio.
+		return false, nil
 	}
 
 	// Usar routing key por defecto si no se provee
@@ -112,7 +114,7 @@ func (r *RabbitMQPublisher) Send(payload interface{}, routingKey string) error {
 	message, err := json.Marshal(payload)
 	if err != nil {
 		log.Printf("[RabbitMQ] Error codificando JSON: %v", err)
-		return fmt.Errorf("error codificando JSON: %w", err)
+		return false, fmt.Errorf("error codificando JSON: %w", err)
 	}
 
 	// Usamos un contexto para poner un timeout a la publicación
@@ -135,11 +137,11 @@ func (r *RabbitMQPublisher) Send(payload interface{}, routingKey string) error {
 	if err != nil {
 		// Tu código Python solo imprime el error, pero en Go es mejor retornarlo
 		log.Printf("[RabbitMQ] Error publicando mensaje: %v", err)
-		return fmt.Errorf("error publicando mensaje: %w", err)
+		return false, fmt.Errorf("error publicando mensaje: %w", err)
 	}
 
 	// print(f"[RabbitMQ] Enviado {routing_key}:{message}") // Omitido ya que estaba comentado
-	return nil
+	return true, nil
 }
 
 // Close cierra el canal y la conexión

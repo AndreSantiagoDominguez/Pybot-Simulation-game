@@ -94,7 +94,7 @@ func (r *HX711Reader) runWeightCycle() error {
 	log.Printf("[HX711] %+v\n", data)
 	
 	// Publica en MQTT
-	if err := r.mqtt.Send(data, "hx"); err != nil {
+	if _, err := r.mqtt.Send(data, "hx"); err != nil {
 		log.Printf("[HX711] Error al enviar por MQTT: %v\n", err)
 	}
 
