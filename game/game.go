@@ -35,6 +35,7 @@ type Game struct {
 	gpsTicks          int
 	weightSensor      *sensors.WeightSensor
 	registerPeriods   *services.RegisterPeriods
+	backupService     *services.Backup
 	batteryDepleted   bool
 }
 
@@ -77,6 +78,9 @@ func NewGame(width, height int) *Game {
 	if err != nil {
 		log.Fatalf("Failed to initialize Weight sensor: %v", err)
 	}
+
+	// Initialize the Backup service
+	g.backupService = services.NewBackup()
 
 	// Create a new work period on start
 	log.Println("Creating a new work period...")
@@ -161,6 +165,7 @@ func (g *Game) createInitialWorkPeriod() {
 	}
 
 	log.Println("Successfully initialized work period.")
+	go g.backupService.Start()
 }
 
 func (g *Game) completeAndStartNewPeriod() {
@@ -176,6 +181,7 @@ func (g *Game) completeAndStartNewPeriod() {
 		log.Printf("Warning: Failed to create initial CAN waste collection: %v", err)
 	}
 	log.Println("Successfully completed last period and created new one with initial waste collections.")
+	go g.backupService.Start()
 }
 
 func (g *Game) LoadAssets() {

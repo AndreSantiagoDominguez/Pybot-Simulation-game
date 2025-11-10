@@ -70,7 +70,7 @@ func (c *RealTimeCamera) PublishRandomImage() {
 	// Publish to RabbitMQ
 	sent, err := c.publisher.Send(
 		map[string]interface{}{
-                        "prototype_id": "70755f712d864350abf6df03",
+                        "prototype_id": "a99fd25c7e4a4e2cb5b7a1d1",
                         "detections": map[string]interface{}{
 								"cls": 1,
 								"conf": 0.4,

@@ -63,6 +63,7 @@ func (s *GPSSensor) GenerateGPSData(position, velocity utils.Vector2D) map[strin
 	now := time.Now().UTC()
 
 	data := map[string]interface{}{
+		"prototype_id":  "a99fd25c7e4a4e2cb5b7a1d1",
 		"lat": lat,
 		"lon": lon,
 		"alt": alt,

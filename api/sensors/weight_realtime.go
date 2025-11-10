@@ -39,7 +39,7 @@ func (s *WeightSensor) RegisterWeight(totalWeight float64) {
 	// Send total weight to RabbitMQ
 	go func() {
 		payload := map[string]interface{}{
-			"prototype_id":  "70755f712d864350abf6df03",
+			"prototype_id":  "a99fd25c7e4a4e2cb5b7a1d1",
 			"weight_g": totalWeight,
 		}
 		if sent, err := s.publisher.Send(payload, "hx"); err != nil {

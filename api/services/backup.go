@@ -57,7 +57,7 @@ func (b *Backup) Start() {
 
 		// --- Este es el bloque que tenías comentado en Python ---
 		// Hacemos un POST a la URL base, sin cuerpo (nil)
-		resp, err := b.client.Post(b.baseURL+"/", "application/json", nil)
+		resp, err := b.client.Get(b.baseURL+"/")
 		if err != nil {
 			fmt.Printf("[FetchAPI] Error al hacer el backup: %v\n", err)
 			// Si la petición falla (ej. error de red), no podemos leer resp,
