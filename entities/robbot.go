@@ -11,6 +11,7 @@ type Robot struct {
 	Position       utils.Vector2D
 	Velocity       utils.Vector2D
 	CansCollected  int
+	TotalWeight    float64
 	Sprite         *ebiten.Image
 	Sprites        map[string]*ebiten.Image
 	BatterySprite  *ebiten.Image
@@ -28,6 +29,7 @@ func NewRobot(x, y float64, sprite *ebiten.Image) *Robot {
 		Position:      utils.Vector2D{X: x, Y: y},
 		Velocity:      utils.Vector2D{X: 0, Y: 0},
 		CansCollected: 0,
+		TotalWeight:   0.0,
 		Sprite:        sprite,
 		Sprites:       make(map[string]*ebiten.Image),
 		Battery:       NewBattery(), // Nueva entidad Battery
@@ -111,8 +113,9 @@ func (r *Robot) SetBounds(minX, maxX, minY, maxY float64) {
 	r.maxY = maxY
 }
 
-func (r *Robot) CollectCan() {
+func (r *Robot) CollectCan(can *Can) {
 	r.CansCollected++
+	r.TotalWeight += can.Weight
 	r.ClearTarget() // Buscar siguiente lata
 }
 
