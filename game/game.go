@@ -125,16 +125,34 @@ g.rechargeButton = Button{
 }
 
 func (g *Game) createInitialWorkPeriod() {
-	if err := g.registerPeriods.CreateNewPeriod(); err != nil {
-		log.Printf("Warning: Failed to create a new work period: %v", err)
-		return
+	// Check if there is a pending period from a previous session
+	newPeriodNeeded, err := g.registerPeriods.StatusPeriod()
+	if err != nil {
+		log.Printf("Warning: Could not get status of last period: %v", err)
+		// Fallback to creating a new period anyway
+		newPeriodNeeded = true
 	}
-	// As per user's instruction, create a void reading after creating a new period.
-	if err := g.registerPeriods.CreateVoidReading(); err != nil {
-		log.Printf("Warning: Failed to create void reading: %v", err)
-		return
+
+	if newPeriodNeeded {
+		log.Println("No pending period found. Creating a new work period...")
+		if err := g.registerPeriods.CreateNewPeriod(); err != nil {
+			log.Printf("Warning: Failed to create a new work period: %v", err)
+			return
+		}
+		if err := g.registerPeriods.CreateVoidReading(); err != nil {
+			log.Printf("Warning: Failed to create void reading: %v", err)
+			return
+		}
+	} else {
+		log.Println("Pending period found. Completing last period and creating a new one...")
+		if err := g.registerPeriods.CompleteLastPeriod(); err != nil {
+			log.Printf("Warning: Failed to complete pending work period: %v", err)
+			return
+		}
 	}
-	// Create initial waste collection records for PET (1) and Cans (2)
+
+	// In both cases, create the initial waste collection records for the new period
+	log.Println("Creating initial waste collection records for the new period...")
 	if err := g.registerPeriods.CreateWasteCollection(1); err != nil {
 		log.Printf("Warning: Failed to create initial PET waste collection: %v", err)
 	}
@@ -142,7 +160,7 @@ func (g *Game) createInitialWorkPeriod() {
 		log.Printf("Warning: Failed to create initial CAN waste collection: %v", err)
 	}
 
-	log.Println("Successfully created new work period, void reading, and initial waste collections.")
+	log.Println("Successfully initialized work period.")
 }
 
 func (g *Game) completeAndStartNewPeriod() {
