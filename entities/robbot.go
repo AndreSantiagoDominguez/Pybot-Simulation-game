@@ -18,11 +18,12 @@ type Robot struct {
 	minY, maxY     float64
 	
 	// Sistema de batería
-	Battery        float64 // 0.0 a 120.0 (2 minutos en segundos)
-	MaxBattery     float64 // 120.0
-	BatteryDrain   float64 // Consumo por segundo
+	Battery        float64 
+	MaxBattery     float64 
+	BatteryDrain   float64
+	IsCharging     bool
+	ChargeRate     float64 
 	
-	// Sistema de navegación automática
 	Target         *utils.Vector2D
 	Speed          float64
 }
@@ -36,9 +37,11 @@ func NewRobot(x, y float64, sprite *ebiten.Image) *Robot {
 		Sprites:       make(map[string]*ebiten.Image),
 		Battery:       120.0, // Inicia con batería completa (2 min)
 		MaxBattery:    120.0,
-		BatteryDrain:  1.0, // 1 segundo por segundo
+		BatteryDrain:  1.0,   // 1 segundo por segundo
+		ChargeRate:    10.0,  // 10 segundos por segundo (carga rápida)
 		Speed:         2.0,
 		Target:        nil,
+		IsCharging:    false,
 	}
 }
 
@@ -129,8 +132,12 @@ func (r *Robot) Recharge() {
 	r.Battery = r.MaxBattery
 }
 
+func (r *Robot) StopCharging() {
+	r.IsCharging = false
+}
+
 func (r *Robot) GetBatteryLevel() int {
-	// Retorna nivel de batería de 0 a 4 (para los 4 frames que tenemos en el sprite)
+	// Retorna nivel de batería de 0 a 4 (para los 4 frames)
 	percentage := r.Battery / r.MaxBattery
 	if percentage > 0.75 {
 		return 4

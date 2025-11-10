@@ -96,47 +96,51 @@ func (g *Game) DrawRobot(screen *ebiten.Image) {
 
 func (g *Game) DrawBattery(screen *ebiten.Image) {
 	// Posición de la batería (esquina superior derecha)
-	batteryX := float64(g.width) - 130.0
+	batteryX := float64(g.width) - 110.0
 	batteryY := 10.0
+	
+	batteryLevel := g.robot.GetBatteryLevel()
 	
 	if g.robot.BatterySprite == nil {
 		// Dibujar batería simple si no hay sprite
-		batteryLevel := g.robot.GetBatteryLevel()
-		for i := 0; i < 4; i++ {
-			barColor := color.RGBA{50, 50, 50, 255}
-			if i < batteryLevel {
-				if batteryLevel <= 1 {
-					barColor = color.RGBA{255, 50, 50, 255} // Rojo
-				} else if batteryLevel == 2 {
-					barColor = color.RGBA{255, 200, 50, 255} // Amarillo
-				} else {
-					barColor = color.RGBA{50, 255, 50, 255} // Verde
-				}
-			}
-			ebitenutil.DrawRect(screen, batteryX+float64(i*27), batteryY, 22, 20, barColor)
+		colors := []color.RGBA{
+			{50, 255, 50, 255},   // Verde lleno
+			{150, 255, 50, 255},  // Verde medio
+			{255, 200, 50, 255},  // Amarillo
+			{255, 50, 50, 255},   // Rojo
 		}
+		
+		barColor := colors[batteryLevel]
+		width := 100.0
+		height := 30.0
+		
+		// Fondo
+		ebitenutil.DrawRect(screen, batteryX, batteryY, width, height, color.RGBA{50, 50, 50, 255})
+		
+		// Barra de batería
+		percentage := g.robot.Battery / g.robot.MaxBattery
+		ebitenutil.DrawRect(screen, batteryX+2, batteryY+2, (width-4)*percentage, height-4, barColor)
+		
+		// Borde
+		ebitenutil.DrawRect(screen, batteryX, batteryY, width, 2, color.RGBA{200, 200, 200, 255})
+		ebitenutil.DrawRect(screen, batteryX, batteryY+height-2, width, 2, color.RGBA{200, 200, 200, 255})
+		ebitenutil.DrawRect(screen, batteryX, batteryY, 2, height, color.RGBA{200, 200, 200, 255})
+		ebitenutil.DrawRect(screen, batteryX+width-2, batteryY, 2, height, color.RGBA{200, 200, 200, 255})
 	} else {
-		// Dibujar sprite de batería
-		batteryLevel := g.robot.GetBatteryLevel()
-		if batteryLevel > 0 {
-			// Asumiendo que el sprite tiene 4 frames de batería
-			frameWidth := float64(g.robot.BatterySprite.Bounds().Dx()) / 4.0
-			frameHeight := float64(g.robot.BatterySprite.Bounds().Dy())
-			
-			frameIndex := batteryLevel - 1 // 0-3
-			sx := float64(frameIndex) * frameWidth
-			frameRect := image.Rect(int(sx), 0, int(sx+frameWidth), int(frameHeight))
-			frameImg := g.robot.BatterySprite.SubImage(frameRect).(*ebiten.Image)
-			
-			op := &ebiten.DrawImageOptions{}
-			op.GeoM.Translate(batteryX, batteryY)
-			screen.DrawImage(frameImg, op)
-		}
+		// Dibujar sprite de batería (300x60px dividido en 4 frames de 75x60px)
+		// Frame de izquierda a derecha según nivel
+		frameWidth := 75.0  // 300px / 4 frames = 75px por frame
+		frameHeight := 60.0
+		
+		// Seleccionar frame según nivel de batería (0=lleno izq, 3=vacío der)
+		sx := float64(batteryLevel) * frameWidth
+		frameRect := image.Rect(int(sx), 0, int(sx+frameWidth), int(frameHeight))
+		frameImg := g.robot.BatterySprite.SubImage(frameRect).(*ebiten.Image)
+		
+		op := &ebiten.DrawImageOptions{}
+		op.GeoM.Translate(batteryX, batteryY)
+		screen.DrawImage(frameImg, op)
 	}
-	
-	// Texto de batería
-	batteryText := fmt.Sprintf("%.0f%%", (g.robot.Battery/g.robot.MaxBattery)*100)
-	ebitenutil.DebugPrintAt(screen, batteryText, int(batteryX+35), int(batteryY+25))
 }
 
 func (g *Game) DrawCans(screen *ebiten.Image) {
@@ -181,7 +185,9 @@ func (g *Game) DrawInfo(screen *ebiten.Image) {
 	ebitenutil.DebugPrintAt(screen, info, 10, 10)
 	
 	status := "Estado: Buscando latas"
-	if g.robot.Battery <= 0 {
+	if g.robot.IsCharging {
+		status = "Estado: CARGANDO"
+	} else if g.robot.Battery <= 0 {
 		status = "Estado: SIN BATERÍA"
 	} else if g.robot.Target != nil {
 		status = "Estado: Recolectando"
@@ -189,4 +195,7 @@ func (g *Game) DrawInfo(screen *ebiten.Image) {
 		status = "Estado: Esperando latas"
 	}
 	ebitenutil.DebugPrintAt(screen, status, 10, 30)
+	
+	controls := "Controles: S = Spawn latas | R (mantener) = Recargar"
+	ebitenutil.DebugPrintAt(screen, controls, 10, 50)
 }
