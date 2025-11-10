@@ -1,6 +1,7 @@
 package game
 
 import (
+	"image"
 	"image/color"
 	"log"
 	"math"
@@ -9,10 +10,11 @@ import (
 	"pybot-simulator/api/services"
 	"time"
 
-	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"pybot-simulator/config"
 	"pybot-simulator/entities"
+
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
 type Game struct {
@@ -190,6 +192,7 @@ func (g *Game) LoadAssets() {
 	
 	// Cargar sprite de batería
 	g.loadBatterySprite()
+
 	
 	// Cargar sprite de la lata
 	var err error
@@ -250,15 +253,39 @@ func (g *Game) loadBatterySprite() {
 }
 
 func (g *Game) SpawnCans(count int) {
-	margin := float64(config.GridMargin)
-	
-	for i := 0; i < count; i++ {
-		x := margin + g.rng.Float64()*(float64(g.width)-2*margin)
-		y := margin + g.rng.Float64()*(float64(g.height)-2*margin)
-		
-		can := entities.NewCan(x, y, g.canSprite)
-		g.cans = append(g.cans, can)
-	}
+    margin := float64(config.GridMargin)
+    
+    for i := 0; i < count; i++ {
+        x := margin + g.rng.Float64()*(float64(g.width)-2*margin)
+        y := margin + g.rng.Float64()*(float64(g.height)-2*margin)
+        
+        var sprite *ebiten.Image
+        
+        if g.canSprite != nil {
+            // DIVIDIR EL SPRITESHEET EXACTAMENTE COMO CON LA BATERÍA
+            // Asumiendo que el spritesheet tiene 2 frames horizontales
+            frameWidth := g.canSprite.Bounds().Dx() / 4  // Ancho de cada frame
+            frameHeight := g.canSprite.Bounds().Dy()     // Alto total
+            
+            // Elegir frame aleatorio (0 o 1)
+            frameIndex := g.rng.Intn(2)
+            
+            // Calcular posición X del frame en el sprite sheet (MISMO MÉTODO QUE BATERÍA)
+            sx := frameIndex * frameWidth
+            frameRect := image.Rect(sx, 0, sx+frameWidth, frameHeight)
+            frameImg := g.canSprite.SubImage(frameRect).(*ebiten.Image)
+            
+            sprite = frameImg
+            log.Printf("Spawneando basura con frame %d", frameIndex)
+        } else {
+            // Fallback si no hay sprite cargado
+            sprite = ebiten.NewImage(config.CanSize, config.CanSize)
+            sprite.Fill(color.RGBA{255, 200, 50, 255})
+        }
+        
+        can := entities.NewCan(x, y, sprite)
+        g.cans = append(g.cans, can)
+    }
 }
 
 func (g *Game) FindNearestCan() *entities.Can {
@@ -332,7 +359,7 @@ func (g *Game) Update() error {
 	}
 
 	// Handle real-time camera publishing
-	if g.robot.Battery > 0 {
+	if !g.robot.Battery.IsEmpty() {
 		g.cameraTicks++
 		// Publish an image every 180 ticks (e.g., every 3 seconds at 60 TPS)
 		if g.cameraTicks >= 180 {

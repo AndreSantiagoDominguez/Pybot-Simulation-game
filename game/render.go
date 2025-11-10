@@ -129,7 +129,7 @@ func (g *Game) DrawBattery(screen *ebiten.Image) {
 	} else {
 		// Dibujar sprite de batería (300x60px dividido en 4 frames de 75x60px)
 		// Frame 0 (izq) = Lleno | Frame 3 (der) = Vacío
-		frameWidth := 75.0  // 300px ÷ 4 frames = 75px
+		frameWidth := 60.0  // 300px ÷ 4 frames = 75px
 		frameHeight := 60.0
 		
 		// Obtener frame según nivel (0=lleno, 3=vacío)
@@ -199,6 +199,6 @@ func (g *Game) DrawInfo(screen *ebiten.Image) {
 	}
 	ebitenutil.DebugPrintAt(screen, status, 10, 30)
 	
-	controls := "Controles: S = Spawn latas | R (mantener) = Recargar"
+	controls := "Controles: S = Spawn latas | R = Recargar"
 	ebitenutil.DebugPrintAt(screen, controls, 10, 50)
 }
