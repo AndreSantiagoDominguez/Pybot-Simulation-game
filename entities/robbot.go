@@ -17,12 +17,7 @@ type Robot struct {
 	minX, maxX     float64
 	minY, maxY     float64
 	
-	// Sistema de batería
-	Battery        float64 
-	MaxBattery     float64 
-	BatteryDrain   float64
-	IsCharging     bool
-	ChargeRate     float64 
+	Battery        *Battery
 	
 	Target         *utils.Vector2D
 	Speed          float64
@@ -35,27 +30,20 @@ func NewRobot(x, y float64, sprite *ebiten.Image) *Robot {
 		CansCollected: 0,
 		Sprite:        sprite,
 		Sprites:       make(map[string]*ebiten.Image),
-		Battery:       120.0, // Inicia con batería completa (2 min)
-		MaxBattery:    120.0,
-		BatteryDrain:  1.0,   // 1 segundo por segundo
-		ChargeRate:    10.0,  // 10 segundos por segundo (carga rápida)
+		Battery:       NewBattery(), // Nueva entidad Battery
 		Speed:         2.0,
 		Target:        nil,
-		IsCharging:    false,
 	}
 }
 
 func (r *Robot) Update() {
 	// Consumir batería si está en movimiento
 	if r.Velocity.X != 0 || r.Velocity.Y != 0 {
-		r.Battery -= r.BatteryDrain / 60.0 // Dividir por TPS (60)
-		if r.Battery < 0 {
-			r.Battery = 0
-		}
+		r.Battery.Drain(1.0 / 60.0) // Dividir por TPS (60)
 	}
 	
 	// Si no hay batería, detener movimiento
-	if r.Battery <= 0 {
+	if r.Battery.IsEmpty() {
 		r.Velocity.X = 0
 		r.Velocity.Y = 0
 		r.Target = nil
@@ -95,7 +83,7 @@ func (r *Robot) Update() {
 }
 
 func (r *Robot) SetTarget(target utils.Vector2D) {
-	if r.Battery > 0 {
+	if !r.Battery.IsEmpty() {
 		r.Target = &target
 	}
 }
@@ -107,7 +95,7 @@ func (r *Robot) ClearTarget() {
 }
 
 func (r *Robot) SetVelocity(vx, vy float64) {
-	if r.Battery > 0 {
+	if !r.Battery.IsEmpty() {
 		r.Velocity.X = vx
 		r.Velocity.Y = vy
 	} else {
@@ -128,27 +116,8 @@ func (r *Robot) CollectCan() {
 	r.ClearTarget() // Buscar siguiente lata
 }
 
-func (r *Robot) Recharge() {
-	r.Battery = r.MaxBattery
-}
-
-func (r *Robot) StopCharging() {
-	r.IsCharging = false
-}
-
 func (r *Robot) GetBatteryLevel() int {
-	// Retorna nivel de batería de 0 a 4 (para los 4 frames)
-	percentage := r.Battery / r.MaxBattery
-	if percentage > 0.75 {
-		return 4
-	} else if percentage > 0.50 {
-		return 3
-	} else if percentage > 0.25 {
-		return 2
-	} else if percentage > 0 {
-		return 1
-	}
-	return 0
+	return r.Battery.GetLevel()
 }
 
 func (r *Robot) GetPosition() utils.Vector2D {

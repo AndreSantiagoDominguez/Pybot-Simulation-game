@@ -13,12 +13,12 @@ func (g *Game) HandleInput() {
 	
 	// Recargar batería con tecla R (mantener presionada)
 	if ebiten.IsKeyPressed(ebiten.KeyR) {
-		if !g.robot.IsCharging {
-			g.robot.Recharge()
+		if !g.robot.Battery.IsCharging {
+			g.robot.Battery.Recharge()
 		}
 	} else {
-		if g.robot.IsCharging {
-			g.robot.StopCharging()
+		if g.robot.Battery.IsCharging {
+			g.robot.Battery.StopCharging()
 		}
 	}
 	
@@ -32,10 +32,10 @@ func (g *Game) HandleInput() {
 		}
 		
 		if g.IsPointInButton(g.rechargeButton, fx, fy) {
-			if !g.robot.IsCharging {
-				g.robot.Recharge()
+			if !g.robot.Battery.IsCharging {
+				g.robot.Battery.Recharge()
 			} else {
-				g.robot.StopCharging()
+				g.robot.Battery.StopCharging()
 			}
 		}
 	}

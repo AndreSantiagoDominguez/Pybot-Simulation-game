@@ -216,7 +216,7 @@ func (g *Game) Update() error {
 	g.HandleInput()
 	
 	// Si el robot no tiene objetivo y tiene batería, buscar la lata más cercana
-	if g.robot.Target == nil && g.robot.Battery > 0 {
+	if g.robot.Target == nil && !g.robot.Battery.IsEmpty() {
 		nearest := g.FindNearestCan()
 		if nearest != nil {
 			g.robot.SetTarget(nearest.Position)

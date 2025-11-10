@@ -104,10 +104,10 @@ func (g *Game) DrawBattery(screen *ebiten.Image) {
 	if g.robot.BatterySprite == nil {
 		// Dibujar batería simple si no hay sprite
 		colors := []color.RGBA{
-			{50, 255, 50, 255},   // Verde lleno
-			{150, 255, 50, 255},  // Verde medio
-			{255, 200, 50, 255},  // Amarillo
-			{255, 50, 50, 255},   // Rojo
+			{50, 255, 50, 255},   // Verde lleno (>75%)
+			{150, 255, 50, 255},  // Verde medio (50-75%)
+			{255, 200, 50, 255},  // Amarillo (25-50%)
+			{255, 50, 50, 255},   // Rojo (<25%)
 		}
 		
 		barColor := colors[batteryLevel]
@@ -118,7 +118,7 @@ func (g *Game) DrawBattery(screen *ebiten.Image) {
 		ebitenutil.DrawRect(screen, batteryX, batteryY, width, height, color.RGBA{50, 50, 50, 255})
 		
 		// Barra de batería
-		percentage := g.robot.Battery / g.robot.MaxBattery
+		percentage := g.robot.Battery.Current / g.robot.Battery.Max
 		ebitenutil.DrawRect(screen, batteryX+2, batteryY+2, (width-4)*percentage, height-4, barColor)
 		
 		// Borde
@@ -128,12 +128,15 @@ func (g *Game) DrawBattery(screen *ebiten.Image) {
 		ebitenutil.DrawRect(screen, batteryX+width-2, batteryY, 2, height, color.RGBA{200, 200, 200, 255})
 	} else {
 		// Dibujar sprite de batería (300x60px dividido en 4 frames de 75x60px)
-		// Frame de izquierda a derecha según nivel
-		frameWidth := 75.0  // 300px / 4 frames = 75px por frame
+		// Frame 0 (izq) = Lleno | Frame 3 (der) = Vacío
+		frameWidth := 75.0  // 300px ÷ 4 frames = 75px
 		frameHeight := 60.0
 		
-		// Seleccionar frame según nivel de batería (0=lleno izq, 3=vacío der)
-		sx := float64(batteryLevel) * frameWidth
+		// Obtener frame según nivel (0=lleno, 3=vacío)
+		frameIndex := batteryLevel
+		
+		// Calcular posición X del frame en el sprite sheet
+		sx := float64(frameIndex) * frameWidth
 		frameRect := image.Rect(int(sx), 0, int(sx+frameWidth), int(frameHeight))
 		frameImg := g.robot.BatterySprite.SubImage(frameRect).(*ebiten.Image)
 		
@@ -185,9 +188,9 @@ func (g *Game) DrawInfo(screen *ebiten.Image) {
 	ebitenutil.DebugPrintAt(screen, info, 10, 10)
 	
 	status := "Estado: Buscando latas"
-	if g.robot.IsCharging {
+	if g.robot.Battery.IsCharging {
 		status = "Estado: CARGANDO"
-	} else if g.robot.Battery <= 0 {
+	} else if g.robot.Battery.IsEmpty() {
 		status = "Estado: SIN BATERÍA"
 	} else if g.robot.Target != nil {
 		status = "Estado: Recolectando"
