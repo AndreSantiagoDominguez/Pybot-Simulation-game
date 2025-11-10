@@ -139,6 +139,7 @@ func (r *RegisterPeriods) CreateNewPeriod() error {
 
 	if id != 0 {
 		r.actualPeriodID = id
+		fmt.Printf("p_id en cnp: %d", r.actualPeriodID)
 	} else {
 		fmt.Println("Ocurrio un error al crear el periodo (ID fue 0)")
 		return fmt.Errorf("API devolvió un ID de 0")
@@ -180,9 +181,9 @@ func (r *RegisterPeriods) RegisterGPS(data map[string]interface{}) error {
 	} else {
 		hourUTC = fmt.Sprintf("%sT%s+00:00", dateStr, utcStr)
 	}
-
+	fmt.Printf("p_id en rgps: %d", r.actualPeriodID)
 	dBody := map[string]interface{}{
-		"gps_data_id": 0,
+		//"gps_data_id": 0,
 		"period_id":   r.actualPeriodID,
 		"latitude":    getFloat(data, "lat", 0.0),
 		"longitude":   getFloat(data, "lon", 0.0),
@@ -311,4 +312,9 @@ func (r *RegisterPeriods) GetIdWasteCollectionPET() int64 {
 // GetIdWasteCollectionCANS es un "getter" simple.
 func (r *RegisterPeriods) GetIdWasteCollectionCANS() int64 {
 	return r.wIDCANS
+}
+
+// GetActualPeriodID es un "getter" para el ID del período actual.
+func (r *RegisterPeriods) GetActualPeriodID() int64 {
+	return r.actualPeriodID
 }

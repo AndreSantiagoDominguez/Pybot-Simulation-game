@@ -36,7 +36,7 @@ func (g *Game) HandleInput() {
 func (g *Game) handleRecharge() {
 	if g.batteryDepleted {
 		log.Println("Battery was depleted, completing last work period and starting a new one.")
-		go g.completeAndStartNewPeriod()
+		g.completeAndStartNewPeriod()
 		g.batteryDepleted = false
 	}
 	g.robot.Recharge()

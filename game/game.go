@@ -32,6 +32,8 @@ type Game struct {
 	animationCounter  int
 	realTimeCamera    *sensors.RealTimeCamera
 	cameraTicks       int
+	gpsSensor         *sensors.GPSSensor
+	gpsTicks          int
 	registerPeriods   *services.RegisterPeriods
 	batteryDepleted   bool
 }
@@ -64,9 +66,15 @@ func NewGame(width, height int) *Game {
 		log.Fatalf("Failed to initialize register periods service: %v", err)
 	}
 
+	// Initialize the GPS sensor
+	g.gpsSensor, err = sensors.NewGPSSensor(g.registerPeriods, width, height)
+	if err != nil {
+		log.Fatalf("Failed to initialize GPS sensor: %v", err)
+	}
+
 	// Create a new work period on start
 	log.Println("Creating a new work period...")
-	go g.createInitialWorkPeriod()
+	g.createInitialWorkPeriod()
 
 	// Crear robot en el centro (sin sprite todavía)
 	g.robot = entities.NewRobot(
@@ -113,7 +121,14 @@ g.rechargeButton = Button{
 func (g *Game) createInitialWorkPeriod() {
 	if err := g.registerPeriods.CreateNewPeriod(); err != nil {
 		log.Printf("Warning: Failed to create a new work period: %v", err)
+		return
 	}
+	// As per user's instruction, create a void reading after creating a new period.
+	if err := g.registerPeriods.CreateVoidReading(); err != nil {
+		log.Printf("Warning: Failed to create void reading: %v", err)
+		return
+	}
+	log.Println("Successfully created new work period and void reading.")
 }
 
 func (g *Game) completeAndStartNewPeriod() {
@@ -267,6 +282,17 @@ func (g *Game) Update() error {
 			g.cameraTicks = 0
 			go g.realTimeCamera.PublishRandomImage()
 		}
+
+		// Handle GPS publishing when moving
+		if g.robot.Velocity.X != 0 || g.robot.Velocity.Y != 0 {
+			g.gpsTicks++
+			// Publish GPS data every 60 ticks (e.g., every 1 second at 60 TPS)
+			if g.gpsTicks >= 60 {
+				g.gpsTicks = 0
+				go g.sendGPSData()
+			}
+		}
+
 	} else {
 		// Set flag when battery is depleted
 		if !g.batteryDepleted {
@@ -278,6 +304,11 @@ func (g *Game) Update() error {
 	g.robot.Update()
 	g.CheckCollisions()
 	return nil
+}
+
+func (g *Game) sendGPSData() {
+	gpsData := g.gpsSensor.GenerateGPSData(g.robot.Position, g.robot.Velocity)
+	g.gpsSensor.SendGPSData(gpsData)
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
