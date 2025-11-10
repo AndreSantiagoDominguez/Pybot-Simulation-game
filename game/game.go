@@ -7,6 +7,7 @@ import (
 	"math"
 	"math/rand"
 	"pybot-simulator/api/sensors"
+	"pybot-simulator/api/services"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -27,10 +28,12 @@ type Game struct {
 
 	canSprite *ebiten.Image
 
-	rng              *rand.Rand
-	animationCounter int
-	realTimeCamera   *sensors.RealTimeCamera
-	cameraTicks      int
+	rng               *rand.Rand
+	animationCounter  int
+	realTimeCamera    *sensors.RealTimeCamera
+	cameraTicks       int
+	registerPeriods   *services.RegisterPeriods
+	batteryDepleted   bool
 }
 
 type Button struct {
@@ -45,6 +48,7 @@ func NewGame(width, height int) *Game {
 		cans:             make([]*entities.Can, 0),
 		rng:              rand.New(rand.NewSource(time.Now().UnixNano())),
 		animationCounter: 0,
+		batteryDepleted:  false,
 	}
 
 	// Initialize the real-time camera sensor
@@ -53,6 +57,16 @@ func NewGame(width, height int) *Game {
 	if err != nil {
 		log.Printf("Warning: Failed to initialize real-time camera: %v", err)
 	}
+
+	// Initialize the work period service
+	g.registerPeriods, err = services.NewRegisterPeriods()
+	if err != nil {
+		log.Fatalf("Failed to initialize register periods service: %v", err)
+	}
+
+	// Create a new work period on start
+	log.Println("Creating a new work period...")
+	go g.createInitialWorkPeriod()
 
 	// Crear robot en el centro (sin sprite todavía)
 	g.robot = entities.NewRobot(
@@ -82,7 +96,7 @@ func NewGame(width, height int) *Game {
 		Text:   "Spawn Latas (S)",
 	}
 	
-	g.rechargeButton = Button{
+g.rechargeButton = Button{
 		X:      20,
 		Y:      float64(height - 60),
 		Width:  180,
@@ -94,6 +108,18 @@ func NewGame(width, height int) *Game {
 	g.SpawnCans(5)
 	
 	return g
+}
+
+func (g *Game) createInitialWorkPeriod() {
+	if err := g.registerPeriods.CreateNewPeriod(); err != nil {
+		log.Printf("Warning: Failed to create a new work period: %v", err)
+	}
+}
+
+func (g *Game) completeAndStartNewPeriod() {
+	if err := g.registerPeriods.CompleteLastPeriod(); err != nil {
+		log.Printf("Warning: Failed to complete work period: %v", err)
+	}
 }
 
 func (g *Game) LoadAssets() {
@@ -117,7 +143,7 @@ func (g *Game) LoadAssets() {
 func (g *Game) loadRobotSprites() {
 	sprites := make(map[string]*ebiten.Image)
 	
-	spriteFiles := map[string]string{
+spriteFiles := map[string]string{
 		"idle":  "assets/pybot-moves/pybot_idle.png",
 		"up":    "assets/pybot-moves/pybot_walk_up.png",
 		"left":  "assets/pybot-moves/pybot_walk_left.png",
@@ -237,9 +263,15 @@ func (g *Game) Update() error {
 	if g.robot.Battery > 0 {
 		g.cameraTicks++
 		// Publish an image every 180 ticks (e.g., every 3 seconds at 60 TPS)
-		if g.cameraTicks >= 15 {
+		if g.cameraTicks >= 180 {
 			g.cameraTicks = 0
 			go g.realTimeCamera.PublishRandomImage()
+		}
+	} else {
+		// Set flag when battery is depleted
+		if !g.batteryDepleted {
+			log.Println("Robot battery depleted.")
+			g.batteryDepleted = true
 		}
 	}
 
