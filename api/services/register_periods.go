@@ -267,7 +267,7 @@ func (r *RegisterPeriods) CreateWasteCollection(wasteID int64) error {
 	dBody := map[string]interface{}{
 		"waste_collection_id": 0,
 		"period_id":           r.actualPeriodID,
-		"amount":              0,
+		"amount":              1,
 		"waste_id":            wasteID,
 	}
 

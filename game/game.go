@@ -1,7 +1,6 @@
 package game
 
 import (
-	"fmt"
 	"image/color"
 	"log"
 	"math"
@@ -34,6 +33,7 @@ type Game struct {
 	cameraTicks       int
 	gpsSensor         *sensors.GPSSensor
 	gpsTicks          int
+	weightSensor      *sensors.WeightSensor
 	registerPeriods   *services.RegisterPeriods
 	batteryDepleted   bool
 }
@@ -70,6 +70,12 @@ func NewGame(width, height int) *Game {
 	g.gpsSensor, err = sensors.NewGPSSensor(g.registerPeriods, width, height)
 	if err != nil {
 		log.Fatalf("Failed to initialize GPS sensor: %v", err)
+	}
+
+	// Initialize the Weight sensor
+	g.weightSensor, err = sensors.NewWeightSensor(g.registerPeriods)
+	if err != nil {
+		log.Fatalf("Failed to initialize Weight sensor: %v", err)
 	}
 
 	// Create a new work period on start
@@ -128,13 +134,30 @@ func (g *Game) createInitialWorkPeriod() {
 		log.Printf("Warning: Failed to create void reading: %v", err)
 		return
 	}
-	log.Println("Successfully created new work period and void reading.")
+	// Create initial waste collection records for PET (1) and Cans (2)
+	if err := g.registerPeriods.CreateWasteCollection(1); err != nil {
+		log.Printf("Warning: Failed to create initial PET waste collection: %v", err)
+	}
+	if err := g.registerPeriods.CreateWasteCollection(2); err != nil {
+		log.Printf("Warning: Failed to create initial CAN waste collection: %v", err)
+	}
+
+	log.Println("Successfully created new work period, void reading, and initial waste collections.")
 }
 
 func (g *Game) completeAndStartNewPeriod() {
 	if err := g.registerPeriods.CompleteLastPeriod(); err != nil {
 		log.Printf("Warning: Failed to complete work period: %v", err)
+		return
 	}
+	// Create initial waste collection records for the new period
+	if err := g.registerPeriods.CreateWasteCollection(1); err != nil {
+		log.Printf("Warning: Failed to create initial PET waste collection: %v", err)
+	}
+	if err := g.registerPeriods.CreateWasteCollection(2); err != nil {
+		log.Printf("Warning: Failed to create initial CAN waste collection: %v", err)
+	}
+	log.Println("Successfully completed last period and created new one with initial waste collections.")
 }
 
 func (g *Game) LoadAssets() {
@@ -236,20 +259,30 @@ func (g *Game) FindNearestCan() *entities.Can {
 func (g *Game) CheckCollisions() {
 	robotPos := g.robot.Position
 	collectRadius := float64(config.RobotSize/2 + config.CanSize/2)
-	
+
 	for _, can := range g.cans {
 		if !can.Active {
 			continue
 		}
-		
+
 		distance := robotPos.Distance(can.Position)
-		
+
 		if distance < collectRadius {
 			can.Deactivate()
-			g.robot.CollectCan()
-			fmt.Printf("¡Lata recogida! Total: %d\n", g.robot.CansCollected)
+			g.robot.CollectCan(can)
+			log.Printf("¡Lata recogida! Tipo: %d, Peso: %.2f. Total Cans: %d, Total Peso: %.2f\n", can.Type, can.Weight, g.robot.CansCollected, g.robot.TotalWeight)
+			
+			// Handle the collection event
+			g.handleWasteCollection(can.WasteID, g.robot.TotalWeight)
 		}
 	}
+}
+
+func (g *Game) handleWasteCollection(wasteID int64, totalWeight float64) {
+	// Register the new total weight
+	g.weightSensor.RegisterWeight(totalWeight)
+	// Update the count for the specific waste type
+	g.weightSensor.UpdateWasteCount(wasteID)
 }
 
 func (g *Game) GetActiveCansCount() int {
